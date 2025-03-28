@@ -1,14 +1,16 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import LoginForm from './components/LoginForm';
 import OperatorDashboard from './components/OperatorDashboard';
 import AVPDashboard from './components/AVPDashboard';
-import ProtectedRoute from './components/ProtectedRoute';
+// import QADashboard from './components/QADashboard';
+import MasterDashboard from './components/MasterDashboard';
+import InspectionFormList from './components/InspectionFormList';
 import EditableInspectionForm from './components/EditableInspectionForm';
 import { AuthProvider, useAuth } from './components/AuthContext';
+import QADashboard from './components/QADashboard';
 
 // Wrapper for InspectionFormLayout
-// You'll need to create this component if it's missing
 const InspectionFormLayout = ({ user, onLogout, children }) => {
   return (
     <div className="min-h-screen bg-gray-100">
@@ -39,13 +41,73 @@ const InspectionFormLayout = ({ user, onLogout, children }) => {
   );
 };
 
-// Modified Login component to use Auth context
-const LoginPage = () => {
-  const { login, isAuthenticated, user } = useAuth();
+// Auth wrapper that handles redirects
+const AuthRouter = () => {
+  const { user, isAuthenticated, logout, isOperator, isQA, isAVP, isMaster, loading } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
   
-  if (isAuthenticated) {
-    return <Navigate to={user.role === 'operator' ? '/operator' : '/avp'} />;
+  // This effect runs when authentication state changes
+  useEffect(() => {
+    if (loading) return; // Don't do anything while loading
+
+    if (isAuthenticated) {
+      // Only redirect if we're at the login page
+      if (location.pathname === '/') {
+        if (isOperator) navigate('/operator', { replace: true });
+        else if (isQA) navigate('/qa', { replace: true });
+        else if (isAVP) navigate('/avp', { replace: true });
+        else if (isMaster) navigate('/master', { replace: true });
+      }
+    } else {
+      // Only redirect to login if we're not already there
+      if (location.pathname !== '/') {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [isAuthenticated, isOperator, isQA, isAVP, isMaster, loading, navigate, location.pathname]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
+
+  return (
+    <Routes>
+      <Route path="/" element={<LoginPage />} />
+      <Route path="/operator" element={isOperator ? <OperatorDashboard user={user} onLogout={logout} /> : <Navigate to="/" replace />} />
+      {/* <Route path="/qa" element={isQA ? <QADashboard user={user} onLogout={logout} /> : <Navigate to="/" replace />} /> */}
+      <Route path="/avp" element={isAVP ? <AVPDashboard user={user} onLogout={logout} /> : <Navigate to="/" replace />} />
+      <Route path="/master" element={isMaster ? <MasterDashboard user={user} onLogout={logout} /> : <Navigate to="/" replace />} />
+      <Route path="/qa" element={isQA ? <QADashboard user={user} onLogout={logout} /> : <Navigate to="/" replace />} />
+      <Route path="/forms" element={
+        isAuthenticated ? (
+          <InspectionFormLayout user={user} onLogout={logout}>
+            <InspectionFormList />
+          </InspectionFormLayout>
+        ) : <Navigate to="/" replace />
+      } />
+      <Route path="/inspection-form" element={
+        isAuthenticated ? (
+          <InspectionFormLayout user={user} onLogout={logout}>
+            <EditableInspectionForm />
+          </InspectionFormLayout>
+        ) : <Navigate to="/" replace />
+      } />
+      <Route path="/inspection-form/:id" element={
+        isAuthenticated ? (
+          <InspectionFormLayout user={user} onLogout={logout}>
+            <EditableInspectionForm />
+          </InspectionFormLayout>
+        ) : <Navigate to="/" replace />
+      } />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+};
+
+// Login Page
+const LoginPage = () => {
+  const { login } = useAuth();
   
   const handleLogin = (userData) => {
     login(userData);
@@ -54,53 +116,12 @@ const LoginPage = () => {
   return <LoginForm onLogin={handleLogin} />;
 };
 
-// Modified components to use Auth context
-const OperatorPage = () => {
-  const { user, logout, isOperator } = useAuth();
-  
-  if (!isOperator) {
-    return <Navigate to="/" />;
-  }
-  
-  return <OperatorDashboard user={user} onLogout={logout} />;
-};
-
-const AVPPage = () => {
-  const { user, logout, isAVP } = useAuth();
-  
-  if (!isAVP) {
-    return <Navigate to="/" />;
-  }
-  
-  return <AVPDashboard user={user} onLogout={logout} />;
-};
-
-const InspectionFormPage = () => {
-  const { user, logout, isAuthenticated } = useAuth();
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/" />;
-  }
-  
-  return (
-    <InspectionFormLayout user={user} onLogout={logout}>
-      <EditableInspectionForm />
-    </InspectionFormLayout>
-  );
-};
-
 // Main app with auth context provider
 const App = () => {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          <Route path="/" element={<LoginPage />} />
-          <Route path="/operator" element={<OperatorPage />} />
-          <Route path="/avp" element={<AVPPage />} />
-          <Route path="/inspection-form" element={<InspectionFormPage />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
+        <AuthRouter />
       </Router>
     </AuthProvider>
   );

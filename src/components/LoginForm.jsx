@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
+import { authAPI } from './api';
 
 const LoginForm = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Simple validation
@@ -14,13 +16,30 @@ const LoginForm = ({ onLogin }) => {
       return;
     }
     
-    // Mock authentication - in a real app, this would call an API
-    if (username === 'operator' && password === 'operator123') {
-      onLogin({ role: 'operator', name: 'John Operator' });
-    } else if (username === 'avp' && password === 'avp123') {
-      onLogin({ role: 'avp', name: 'Sarah AVP' });
-    } else {
-      setError('Invalid username or password.');
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Call the real API for authentication
+      const user = await authAPI.login(username, password);
+      
+      // Map the backend roles to frontend roles if needed
+      const role = user.role.toLowerCase();
+      onLogin({ 
+        id: user.id,
+        role: role, 
+        name: user.name 
+      });
+      
+    } catch (error) {
+      console.error('Login error:', error);
+      setError(
+        error.response?.status === 401
+          ? 'Invalid username or password.'
+          : 'An error occurred during login. Please try again.'
+      );
+    } finally {
+      setLoading(false);
     }
   };
   
@@ -52,6 +71,7 @@ const LoginForm = ({ onLogin }) => {
               placeholder="Enter your username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
             />
           </div>
           
@@ -66,15 +86,19 @@ const LoginForm = ({ onLogin }) => {
               placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
             />
           </div>
           
           <div>
             <button
-              className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+              className={`w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline ${
+                loading ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
               type="submit"
+              disabled={loading}
             >
-              Sign In
+              {loading ? 'Signing In...' : 'Sign In'}
             </button>
           </div>
         </form>
@@ -82,7 +106,9 @@ const LoginForm = ({ onLogin }) => {
         <div className="mt-8 text-center text-sm text-gray-600">
           <p>For demo purposes:</p>
           <p>Operator login: username "operator" / password "operator123"</p>
+          <p>QA login: username "qa" / password "qa123"</p>
           <p>AVP login: username "avp" / password "avp123"</p>
+          <p>Master login: username "master" / password "master123"</p>
         </div>
       </div>
     </div>

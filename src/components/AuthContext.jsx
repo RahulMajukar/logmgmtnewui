@@ -18,6 +18,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // This effect runs only once when the component mounts
   useEffect(() => {
     // Check if user is stored in localStorage
     try {
@@ -47,26 +48,29 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
   };
 
-  // Compute authentication properties
+  // Compute authentication properties based on the user's role
   const isAuthenticated = !!user;
   const isOperator = user && user.role === 'operator';
   const isQA = user && user.role === 'qa';
   const isAVP = user && user.role === 'avp';
+  const isMaster = user && user.role === 'master';
 
-  // AuthContext value
+  // AuthContext value - we only create this object once per render
   const value = {
     user,
     login,
     logout,
     isAuthenticated,
     isOperator,
+    isQA,
     isAVP,
+    isMaster,
     loading
   };
 
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };
